@@ -11,10 +11,10 @@ let vendorSubject;
 async function initScrape(){
     try {
         console.log('initializing headless puppeteer... ( ͡° ͜ʖ ͡°)')
-        browser = await pupp.launch({ headless: false, args: ['--window-size=1080,1800', '--start-maximized'] });
+        browser = await pupp.launch({ headless: true }) //, args: ['--window-size=1440,900', '--start-maximized'] });
         console.log('launching browser page...')
         const page = await browser.newPage();
-        // await page.setViewport({ height: 1080, width: 1800 })
+        await page.setViewport({ height: 900, width: 1440 })
         await page.setRequestInterception(true);
         // await page.setViewport({ width: 1280, height: 1000 })
         await page._client.send('Page.setDownloadBehavior', {
@@ -132,7 +132,7 @@ async function initScrape(){
     console.log(campaignSubject);
 
     // Campaign Page evaluator tests
-    let header = await page.evaluate(() => document.querySelector('.scmp-page-title--secondary').innerText.toLowerCase());
+    let header = await page.evaluate(() => document.querySelector('.scmp-page-title > span').innerText.toLowerCase());
     console.log(header === campaignSubject.campaign_name.toLowerCase());
     await page.click('#addVendor');
     await page.waitFor(500);
@@ -146,14 +146,38 @@ async function initScrape(){
     await page.click('#close');
     await page.waitFor(500);
     pageOrigin = await page.url()
-    let reg = await page.evaluate(() => document.querySelector('.pointer-end').innerText);
+    let reg = await page.evaluate(() => document.querySelector('div > .pointer-end').innerText);
     console.log(reg, campaignSubject.groups_responding);
     console.log(parseFloat(reg) > parseFloat(campaignSubject.groups_responding))
     await page.waitFor(500);
-    await page.click('#surveyTable > mat-row:nth-child(2) > mat-cell.mat-cell.cdk-column-vendor.mat-column-vendor.ng-star-inserted > a');
+    await page.click('#surveyTable > mat-row:nth-child(2) > mat-cell.mat-cell.cdk-column-vendor.mat-column-vendor.ng-star-inserted > div > a');
     await page.waitFor(500);
+    //navigation verification
     let navigated = await page.url();
-    console.log(navigated === pageOrigin)
+    console.log(navigated === pageOrigin);
+    const { answers, counts, details, group, pending, roles, users } = vendorSubject;
+    console.log(vendorSubject, ' ================ V E N D O R - D A T A  ==========')
+    // Edit vendor
+    console.log('edit vendor')
+    await page.focus('#editVendor');
+    await page.click('#editVendor');
+    await page.waitForSelector('#vendorName');
+    let preName = await page.evaluate(() => document.querySelector('#vendorName').value);
+    console.log(group.address)
+    console.log(preName.valueOf() === group.name.valueOf());
+    let preAddress = await page.evaluate(() => document.querySelector('#vendorAddress').value);
+    console.log(preAddress.valueOf() === group.address.valueOf());
+    await page.waitFor(500);
+    await page.focus('#vendorDescription');
+    await page.click('#vendorDescription');
+    await page.keyboard.type('Beauty Products for all');
+    await page.click('#editSubmit');
+    // Edit Vendor snackbar
+    await page.waitFor(1000);
+    let editSnack = await page.evaluate(() => document.querySelector('simple-snack-bar').innerText.toLowerCase().includes('group'));
+    console.log(editSnack + ' - snack - bar - edit vendor -')
+    //Add campaign to vendor
+    console.log('add campaign')
     await page.waitFor(500);
     await page.click('#addCampaign');
     await page.waitFor(500);
@@ -163,7 +187,6 @@ async function initScrape(){
     await page.waitFor(500);
     await page.click('#close');
     await page.click('#close');
-    const { answers, counts, details, group, pending, roles, users } = vendorSubject; 
     await page.waitFor(500);
     let vendorCampaignList = await page.evaluate((groupList) => document.querySelector('#groupCampaignList').childElementCount - 2 === groupList, details.length);
     console.log(vendorCampaignList);
@@ -177,6 +200,8 @@ async function initScrape(){
     await page.click('#close');
     await page.click('#close');
     await page.waitFor(1000);
+    //Invite User
+    console.log('invite user')
     await page.click('#inviteUser');
     await page.focus('form > div > div > input');
     await page.keyboard.type(process.env.INVITE_EMAIL);
@@ -185,15 +210,49 @@ async function initScrape(){
     await page.waitFor(2000);
     await page.click('#sendInvite');
     await page.waitFor(2000);
-    let snackCampaign = await page.evaluate(() => document.querySelector('snack-bar-container').innerText.includes('has been invited'));
+    let snackCampaign = await page.evaluate(() => document.querySelector('simple-snack-bar').innerText.toLowerCase().includes('been invited'));
     console.log(snackCampaign + ' snack - bar - campaign')
-
+    //Delete from table
+    await page.waitFor(500);
+    await page.click('#surveyDelete_0');
+    await page.waitFor(500);
+    let surveyTable = await page.evaluate(() => document.querySelector('#surveyTable').childElementCount); 
+    console.log(answers.length > surveyTable, 'After - delete - survey table');
+    // Delete from user table
+    await page.waitFor(500);
+    await page.click('#userDelete_0');
+    await page.waitFor(500);
+    await page.click('#dialogCancel');
+    let userTable = await page.evaluate(() => document.querySelector('#userTable').childElementCount - 1);
+    console.log(userTable === users.length)
+    await page.waitFor(500);
+    // Edit Role From Table
+    console.log('edit roles')
+    let text = await page.evaluate(() => document.querySelector('#invitedUsers').children[1].children[2].children[0].children[0].children[0].innerText);
+    console.log(typeof text, ' type of text')
+    await page.waitFor(1000);
+    await page.evaluate(() => document.querySelector('#invitedUsers').children[1].children[2].children[0].children[0].children[0].click());
+    await page.waitFor(1000);
+    
+    let id = selector(text);
+    console.log(id);
+    await page.waitFor(1000);
+    await page.evaluate((option) =>  document.querySelector('.mat-select-content').children[option].click(), id)
+    await page.waitFor(1000);
+    console.log(selector(text), 'selector option')
+    let newRole = await page.evaluate(() => document.querySelector('#invitedUsers').children[1].children[2].children[0].children[0].children[0].innerText);
+    console.log(newRole, text, 'Invited Users Options')
     // await browser.close()
-    await console.log('shutting down puppeteer... ʕ •ᴥ•ʔ');
+    console.log('shutting down puppeteer... ʕ •ᴥ•ʔ');
     
     }catch(err) {
+        console.log(err.stack)
         console.error(err.message);
         await browser.close()
     }
 };
 initScrape()
+function selector(type){
+    console.log(type === 'Admin', 'terniary')
+    return (type.valueOf().toLowerCase() === 'admin' ? 1 : 0)
+}
