@@ -253,6 +253,6 @@ async function initScrape(){
 };
 initScrape()
 function selector(type){
-    console.log(type === 'Admin', 'terniary')
-    return (type.valueOf().toLowerCase() === 'admin' ? 1 : 0)
+    console.log(type == 'Admin', 'terniary')
+    return (type.valueOf().toLowerCase() == 'admin' ? 1 : 0)
 }
